@@ -10,7 +10,6 @@
   let pdf;
   let currentStartPage = 1;
   let isRendering = false;
-  const renderedPages = new Map();
 
   try {
     const loadingTask = pdfjsLib.getDocument(url);
@@ -20,7 +19,7 @@
     console.error(error);
     container.innerHTML =
       "<p>Das Portfolio konnte nicht geladen werden.</p>";
-    pageIndicator.textContent = "Fehler";
+    pageIndicator.textContent = "Fehler beim Laden";
   }
 
   function pagesForCurrentView() {
@@ -32,63 +31,51 @@
       return [1];
     }
 
-    return [currentStartPage, currentStartPage + 1]
-      .filter((pageNumber) => pageNumber <= pdf.numPages);
+    return [currentStartPage, currentStartPage + 1].filter(
+      (pageNumber) => pageNumber <= pdf.numPages
+    );
   }
 
   async function renderPage(pageNumber) {
-  if (renderedPages.has(pageNumber)) {
-    const cached = renderedPages.get(pageNumber);
+    const page = await pdf.getPage(pageNumber);
+    const viewport = page.getViewport({ scale });
+
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
 
     canvas.className = "pdf-page";
-    canvas.width = cached.width;
-    canvas.height = cached.height;
-    canvas.style.width = cached.cssWidth;
-    canvas.style.height = cached.cssHeight;
 
-    context.drawImage(cached.image, 0, 0);
+    /* Sichtbare Größe im Layout */
+    canvas.style.width = `${viewport.width}px`;
+    canvas.style.height = `${viewport.height}px`;
+
+    /* Höhere interne Auflösung für scharfe Linien und Text */
+    canvas.width = Math.floor(viewport.width * pixelRatio);
+    canvas.height = Math.floor(viewport.height * pixelRatio);
+
+    await page.render({
+      canvasContext: context,
+      viewport: viewport,
+      transform:
+        pixelRatio !== 1
+          ? [pixelRatio, 0, 0, pixelRatio, 0, 0]
+          : null,
+    }).promise;
+
     return canvas;
   }
-
-  const page = await pdf.getPage(pageNumber);
-  const viewport = page.getViewport({ scale });
-
-  const sourceCanvas = document.createElement("canvas");
-  const sourceContext = sourceCanvas.getContext("2d");
-
-  sourceCanvas.width = Math.floor(viewport.width);
-  sourceCanvas.height = Math.floor(viewport.height);
-
-  await page.render({
-    canvasContext: sourceContext,
-    viewport: viewport,
-  }).promise;
-
-  const image = new Image();
-  image.src = sourceCanvas.toDataURL("image/png");
-  await image.decode();
-
-  renderedPages.set(pageNumber, {
-    image,
-    width: sourceCanvas.width,
-    height: sourceCanvas.height,
-    cssWidth: `${viewport.width}px`,
-    cssHeight: `${viewport.height}px`,
-  });
-
-  return renderPage(pageNumber);
-}
 
   async function showSpread(startPage) {
     if (!pdf || isRendering) return;
 
     isRendering = true;
     currentStartPage = startPage;
+
     previousButton.disabled = true;
     nextButton.disabled = true;
-
+    pageIndicator.textContent = "Lade Seiten …";
     container.innerHTML = "";
 
     const spread = document.createElement("section");
@@ -108,7 +95,8 @@
     container.appendChild(spread);
 
     if (visiblePages.length === 1) {
-      pageIndicator.textContent = `Seite ${visiblePages[0]} von ${pdf.numPages}`;
+      pageIndicator.textContent =
+        `Seite ${visiblePages[0]} von ${pdf.numPages}`;
     } else {
       pageIndicator.textContent =
         `Seiten ${visiblePages[0]}–${visiblePages[1]} von ${pdf.numPages}`;
@@ -116,26 +104,16 @@
 
     previousButton.disabled = currentStartPage === 1;
 
-    const step = window.innerWidth <= 768 ? 1 : currentStartPage === 1 ? 1 : 2;
-    nextButton.disabled = currentStartPage + step > pdf.numPages;
+    if (window.innerWidth <= 768) {
+      nextButton.disabled = currentStartPage >= pdf.numPages;
+    } else {
+      const nextStartPage =
+        currentStartPage === 1 ? 2 : currentStartPage + 2;
+
+      nextButton.disabled = nextStartPage > pdf.numPages;
+    }
 
     isRendering = false;
-    preloadNextSpread();
-  }
-
-  async function preloadNextSpread() {
-  if (!pdf) return;
-
-  const nextStartPage = currentStartPage === 1
-    ? 2
-    : currentStartPage + 2;
-
-  if (nextStartPage <= pdf.numPages) {
-    await renderPage(nextStartPage);
-
-    if (nextStartPage + 1 <= pdf.numPages) {
-      await renderPage(nextStartPage + 1);
-    }
   }
 
   function previous() {
@@ -164,9 +142,8 @@
       return;
     }
 
-    const nextStartPage = currentStartPage === 1
-      ? 2
-      : currentStartPage + 2;
+    const nextStartPage =
+      currentStartPage === 1 ? 2 : currentStartPage + 2;
 
     if (nextStartPage <= pdf.numPages) {
       showSpread(nextStartPage);
@@ -188,7 +165,11 @@
     const isDesktop = window.innerWidth > 768;
 
     if (wasDesktop !== isDesktop && pdf) {
-      if (isDesktop && currentStartPage > 1 && currentStartPage % 2 !== 0) {
+      if (
+        isDesktop &&
+        currentStartPage > 1 &&
+        currentStartPage % 2 !== 0
+      ) {
         currentStartPage -= 1;
       }
 
