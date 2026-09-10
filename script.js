@@ -1,12 +1,39 @@
 (async function () {
   const url = "Portfolio.pdf";
-
-  const loadingTask = pdfjsLib.getDocument(url);
-  const pdf = await loadingTask.promise;
+  const scale = 1.35;
 
   const container = document.getElementById("pdfContainer");
-  const scale = 1.2;
-  const numPages = pdf.numPages;
+  const previousButton = document.getElementById("previousButton");
+  const nextButton = document.getElementById("nextButton");
+  const pageIndicator = document.getElementById("pageIndicator");
+
+  let pdf;
+  let currentStartPage = 1;
+  let isRendering = false;
+
+  try {
+    const loadingTask = pdfjsLib.getDocument(url);
+    pdf = await loadingTask.promise;
+    await showSpread(1);
+  } catch (error) {
+    console.error(error);
+    container.innerHTML =
+      "<p>Das Portfolio konnte nicht geladen werden.</p>";
+    pageIndicator.textContent = "Fehler";
+  }
+
+  function pagesForCurrentView() {
+    if (window.innerWidth <= 768) {
+      return [currentStartPage];
+    }
+
+    if (currentStartPage === 1) {
+      return [1];
+    }
+
+    return [currentStartPage, currentStartPage + 1]
+      .filter((pageNumber) => pageNumber <= pdf.numPages);
+  }
 
   async function renderPage(pageNumber) {
     const page = await pdf.getPage(pageNumber);
@@ -25,33 +52,104 @@
     return canvas;
   }
 
-  function createSpread() {
+  async function showSpread(startPage) {
+    if (!pdf || isRendering) return;
+
+    isRendering = true;
+    currentStartPage = startPage;
+    previousButton.disabled = true;
+    nextButton.disabled = true;
+
+    container.innerHTML = "";
+
     const spread = document.createElement("section");
     spread.className = "spread";
-    return spread;
-  }
 
-  // 1. Seite: Deckblatt allein und mittig
-  const coverSpread = createSpread();
-  coverSpread.classList.add("cover-spread");
+    if (currentStartPage === 1) {
+      spread.classList.add("cover-spread");
+    }
 
-  const cover = await renderPage(1);
-  coverSpread.appendChild(cover);
+    const visiblePages = pagesForCurrentView();
 
-  container.appendChild(coverSpread);
-
-  // Ab Seite 2: stets zwei Seiten nebeneinander
-  for (let i = 2; i <= numPages; i += 2) {
-    const spread = createSpread();
-
-    const leftPage = await renderPage(i);
-    spread.appendChild(leftPage);
-
-    if (i + 1 <= numPages) {
-      const rightPage = await renderPage(i + 1);
-      spread.appendChild(rightPage);
+    for (const pageNumber of visiblePages) {
+      const canvas = await renderPage(pageNumber);
+      spread.appendChild(canvas);
     }
 
     container.appendChild(spread);
+
+    if (visiblePages.length === 1) {
+      pageIndicator.textContent = `Seite ${visiblePages[0]} von ${pdf.numPages}`;
+    } else {
+      pageIndicator.textContent =
+        `Seiten ${visiblePages[0]}–${visiblePages[1]} von ${pdf.numPages}`;
+    }
+
+    previousButton.disabled = currentStartPage === 1;
+
+    const step = window.innerWidth <= 768 ? 1 : currentStartPage === 1 ? 1 : 2;
+    nextButton.disabled = currentStartPage + step > pdf.numPages;
+
+    isRendering = false;
   }
+
+  function previous() {
+    if (!pdf || isRendering || currentStartPage === 1) return;
+
+    if (window.innerWidth <= 768) {
+      showSpread(currentStartPage - 1);
+      return;
+    }
+
+    if (currentStartPage <= 2) {
+      showSpread(1);
+      return;
+    }
+
+    showSpread(currentStartPage - 2);
+  }
+
+  function next() {
+    if (!pdf || isRendering) return;
+
+    if (window.innerWidth <= 768) {
+      if (currentStartPage < pdf.numPages) {
+        showSpread(currentStartPage + 1);
+      }
+      return;
+    }
+
+    const nextStartPage = currentStartPage === 1
+      ? 2
+      : currentStartPage + 2;
+
+    if (nextStartPage <= pdf.numPages) {
+      showSpread(nextStartPage);
+    }
+  }
+
+  previousButton.addEventListener("click", previous);
+  nextButton.addEventListener("click", next);
+
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowLeft") previous();
+    if (event.key === "ArrowRight") next();
+  });
+
+  let previousWidth = window.innerWidth;
+
+  window.addEventListener("resize", () => {
+    const wasDesktop = previousWidth > 768;
+    const isDesktop = window.innerWidth > 768;
+
+    if (wasDesktop !== isDesktop && pdf) {
+      if (isDesktop && currentStartPage > 1 && currentStartPage % 2 !== 0) {
+        currentStartPage -= 1;
+      }
+
+      showSpread(currentStartPage);
+    }
+
+    previousWidth = window.innerWidth;
+  });
 })();
