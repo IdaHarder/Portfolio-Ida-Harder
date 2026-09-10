@@ -2,25 +2,49 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8" />
-  <title>Architektur‑Portfolio</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  />
+  <title>Architektur-Portfolio</title>
+
   <link rel="stylesheet" href="style.css" />
-  <!-- PDF.js von Mozilla über CDN -->
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
   </script>
 </head>
+
 <body>
   <header class="topbar">
-    <h1>Architektur‑Portfolio</h1>
-    <a href="portfolio.pdf" download class="download-btn">PDF herunterladen</a>
+    <h1>Architektur-Portfolio</h1>
+
+    <a href="Portfolio.pdf" download class="download-btn">
+      PDF herunterladen
+    </a>
   </header>
 
-  <div class="viewer-container">
-    <div id="pdfContainer" class="pdf-container"></div>
-  </div>
+  <main class="viewer-shell">
+    <div id="pdfContainer" class="pdf-container" aria-live="polite"></div>
+
+    <div class="controls">
+      <button id="previousButton" type="button">
+        ← Zurück
+      </button>
+
+      <span id="pageIndicator">Lade Portfolio …</span>
+
+      <button id="nextButton" type="button">
+        Weiter →
+      </button>
+    </div>
+
+    <p class="hint">
+      Mit den Pfeiltasten ← und → kannst du ebenfalls blättern.
+    </p>
+  </main>
 
   <script src="script.js"></script>
 </body>
