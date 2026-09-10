@@ -1,5 +1,5 @@
 (async function () {
-  const url = "portfolio.pdf";
+  const url = "Portfolio.pdf";
 
   const loadingTask = pdfjsLib.getDocument(url);
   const pdf = await loadingTask.promise;
