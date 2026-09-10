@@ -33,12 +33,19 @@ body {
 }
 
 .download-btn {
-  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #222;
   background: #222;
   color: #fff;
-  padding: 6px 10px;
-  border-radius: 4px;
+  cursor: pointer;
+  font: inherit;
   font-size: 13px;
+  line-height: 1;
+  padding: 10px 13px;
+  text-decoration: none;
+  transition: background 150ms ease, color 150ms ease;
 }
 
 .download-btn:hover {
