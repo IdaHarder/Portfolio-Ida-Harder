@@ -10,6 +10,7 @@
   let pdf;
   let currentStartPage = 1;
   let isRendering = false;
+  const renderedPages = new Map();
 
   try {
     const loadingTask = pdfjsLib.getDocument(url);
@@ -36,21 +37,49 @@
   }
 
   async function renderPage(pageNumber) {
-    const page = await pdf.getPage(pageNumber);
-    const viewport = page.getViewport({ scale });
-
+  if (renderedPages.has(pageNumber)) {
+    const cached = renderedPages.get(pageNumber);
     const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+
     canvas.className = "pdf-page";
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
+    canvas.width = cached.width;
+    canvas.height = cached.height;
+    canvas.style.width = cached.cssWidth;
+    canvas.style.height = cached.cssHeight;
 
-    await page.render({
-      canvasContext: canvas.getContext("2d"),
-      viewport: viewport,
-    }).promise;
-
+    context.drawImage(cached.image, 0, 0);
     return canvas;
   }
+
+  const page = await pdf.getPage(pageNumber);
+  const viewport = page.getViewport({ scale });
+
+  const sourceCanvas = document.createElement("canvas");
+  const sourceContext = sourceCanvas.getContext("2d");
+
+  sourceCanvas.width = Math.floor(viewport.width);
+  sourceCanvas.height = Math.floor(viewport.height);
+
+  await page.render({
+    canvasContext: sourceContext,
+    viewport: viewport,
+  }).promise;
+
+  const image = new Image();
+  image.src = sourceCanvas.toDataURL("image/png");
+  await image.decode();
+
+  renderedPages.set(pageNumber, {
+    image,
+    width: sourceCanvas.width,
+    height: sourceCanvas.height,
+    cssWidth: `${viewport.width}px`,
+    cssHeight: `${viewport.height}px`,
+  });
+
+  return renderPage(pageNumber);
+}
 
   async function showSpread(startPage) {
     if (!pdf || isRendering) return;
@@ -91,6 +120,22 @@
     nextButton.disabled = currentStartPage + step > pdf.numPages;
 
     isRendering = false;
+    preloadNextSpread();
+  }
+
+  async function preloadNextSpread() {
+  if (!pdf) return;
+
+  const nextStartPage = currentStartPage === 1
+    ? 2
+    : currentStartPage + 2;
+
+  if (nextStartPage <= pdf.numPages) {
+    await renderPage(nextStartPage);
+
+    if (nextStartPage + 1 <= pdf.numPages) {
+      await renderPage(nextStartPage + 1);
+    }
   }
 
   function previous() {
