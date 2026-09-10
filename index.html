@@ -29,22 +29,29 @@
   <main class="viewer-shell">
     <div id="pdfContainer" class="pdf-container" aria-live="polite"></div>
 
-    <div class="controls">
-      <button id="previousButton" type="button">
-        ← Zurück
-      </button>
+   <div class="controls">
+  <button
+    id="previousButton"
+    class="arrow-button"
+    type="button"
+    aria-label="Vorherige Seiten"
+    title="Vorherige Seiten"
+  >
+    <span aria-hidden="true">‹</span>
+  </button>
 
-      <span id="pageIndicator">Lade Portfolio …</span>
+  <span id="pageIndicator">Lade Portfolio …</span>
 
-      <button id="nextButton" type="button">
-        Weiter →
-      </button>
-    </div>
-
-    <p class="hint">
-      Mit den Pfeiltasten ← und → kannst du ebenfalls blättern.
-    </p>
-  </main>
+  <button
+    id="nextButton"
+    class="arrow-button"
+    type="button"
+    aria-label="Nächste Seiten"
+    title="Nächste Seiten"
+  >
+    <span aria-hidden="true">›</span>
+  </button>
+</div>
 
   <script src="script.js"></script>
 </body>
