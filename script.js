@@ -5,59 +5,53 @@
   const pdf = await loadingTask.promise;
 
   const container = document.getElementById("pdfContainer");
-  const scale = 1.2; // anpassen, je nach PDF-Größe
-
+  const scale = 1.2;
   const numPages = pdf.numPages;
 
-  // Immer zwei Seiten nebeneinander rendern
-  for (let i = 1; i <= numPages; i += 2) {
-    const leftPageNum = i;
-    const rightPageNum = i + 1;
+  async function renderPage(pageNumber) {
+    const page = await pdf.getPage(pageNumber);
+    const viewport = page.getViewport({ scale });
 
-    const leftPage = await pdf.getPage(leftPageNum);
-    const leftViewport = leftPage.getViewport({ scale });
+    const canvas = document.createElement("canvas");
+    canvas.className = "pdf-page";
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
 
-    const leftCanvas = document.createElement("canvas");
-    leftCanvas.className = "pdf-page";
-    leftCanvas.width = leftViewport.width;
-    leftCanvas.height = leftViewport.height;
+    await page.render({
+      canvasContext: canvas.getContext("2d"),
+      viewport: viewport,
+    }).promise;
 
-    const rightCanvas = document.createElement("canvas");
-    if (rightPageNum <= numPages) {
-      const rightPage = await pdf.getPage(rightPageNum);
-      const rightViewport = rightPage.getViewport({ scale });
+    return canvas;
+  }
 
-      rightCanvas.className = "pdf-page";
-      rightCanvas.width = rightViewport.width;
-      rightCanvas.height = rightViewport.height;
+  function createSpread() {
+    const spread = document.createElement("section");
+    spread.className = "spread";
+    return spread;
+  }
 
-      await Promise.all([
-        leftPage
-          .render({
-            canvasContext: leftCanvas.getContext("2d"),
-            viewport: leftViewport,
-          })
-          .promise,
-        rightPage
-          .render({
-            canvasContext: rightCanvas.getContext("2d"),
-            viewport: rightViewport,
-          })
-          .promise,
-      ]);
-    } else {
-      // Nur linke Seite (bei ungerader Seitenzahl)
-      await leftPage
-        .render({
-          canvasContext: leftCanvas.getContext("2d"),
-          viewport: leftViewport,
-        })
-        .promise;
+  // 1. Seite: Deckblatt allein und mittig
+  const coverSpread = createSpread();
+  coverSpread.classList.add("cover-spread");
+
+  const cover = await renderPage(1);
+  coverSpread.appendChild(cover);
+
+  container.appendChild(coverSpread);
+
+  // Ab Seite 2: stets zwei Seiten nebeneinander
+  for (let i = 2; i <= numPages; i += 2) {
+    const spread = createSpread();
+
+    const leftPage = await renderPage(i);
+    spread.appendChild(leftPage);
+
+    if (i + 1 <= numPages) {
+      const rightPage = await renderPage(i + 1);
+      spread.appendChild(rightPage);
     }
 
-    container.appendChild(leftCanvas);
-    if (rightPageNum <= numPages) {
-      container.appendChild(rightCanvas);
-    }
+    container.appendChild(spread);
   }
 })();
